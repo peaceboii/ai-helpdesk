@@ -1,0 +1,18 @@
+# Environments
+venv/
+.venv/
+env/
+ENV/
+
+# Python caching
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Data & Database
+data/helpdesk.db
+data/raw_tickets.csv
+
+# OS specific
+.DS_Store
+Thumbs.db

@@ -1,0 +1,15 @@
+pandas
+numpy
+scikit-learn
+nltk
+matplotlib
+seaborn
+joblib
+streamlit
+jupyter
+kagglehub
+fastapi
+uvicorn
+langdetect
+PyPDF2
+email-validator

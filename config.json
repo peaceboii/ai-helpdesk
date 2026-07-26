@@ -1,0 +1,24 @@
+{
+  "routing_rules": {
+    "Billing": "Finance Team",
+    "Technical": "Engineering",
+    "HR": "Human Resources",
+    "General": "Customer Support"
+  },
+  "confidence_threshold": 60.0,
+  "spam_keywords": [
+    "buy now", "free prize", "advertisement", "marketing campaign", 
+    "increase sales", "click here", "subscribe", "limited time offer"
+  ],
+  "high_priority_keywords": [
+    "urgent", "critical", "down", "server down", "production", 
+    "payment failed", "salary", "invoice", "not working", "asap"
+  ],
+  "email_imap_config": {
+    "host": "imap.example.com",
+    "port": 993,
+    "use_ssl": true,
+    "username": "support@example.com",
+    "password": "mock_password"
+  }
+}
