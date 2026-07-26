@@ -1,82 +1,120 @@
-# AI-Powered Support Ticket Categorization System
+# 🎫 AI Helpdesk Automation Platform
 
-## Problem Statement
-Customer support teams handle a massive volume of tickets daily. Manually routing these tickets to the appropriate department (Billing, Technical, HR, General) is time-consuming and error-prone. This project aims to automate this process using an AI-powered text classification model, improving efficiency and response times.
+[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge.svg)](https://ai-appdesk-ieu9rww5efkwdk3zdxwbna.streamlit.app/)
 
-## Dataset
-The project uses a customer support ticket dataset containing ticket subjects and descriptions. We mapped the given categories to the four target classes (Billing, Technical, HR, General). A synthetic dataset for HR was created to ensure balanced representation for the prompt's requirements.
+A production-quality Helpdesk Automation Platform that manages ticket creation, cleans data via NLP pipelines, detects urgency, maps categories, and orchestrates auto-responses.
 
-## Approach
-We built a text classification pipeline using Python and Scikit-Learn. The system preprocesses the text, extracts TF-IDF features, and trains both Multinomial Naive Bayes and Logistic Regression models. The best model is selected and deployed via a Streamlit web application.
+**Live Application Link:** [https://ai-appdesk-ieu9rww5efkwdk3zdxwbna.streamlit.app/](https://ai-appdesk-ieu9rww5efkwdk3zdxwbna.streamlit.app/)
 
-## Pipeline Diagram
+---
+
+## 📌 Problem Statement
+Customer support teams handle a massive volume of tickets daily. Manually routing these tickets to the appropriate department (Billing, Technical, HR, General) is time-consuming and error-prone. This project automates the entire ingestion and classification lifecycle, routing issues to specialized teams and raising responses within minutes.
+
+## 🗺️ Architectural Workflow
 ```
-[Raw Data] -> [Preprocessing (Clean, Tokenize, Lemmatize)] -> [TF-IDF Vectorizer]
-                                                                     |
-                                                          [Train NB & Logistic Reg]
-                                                                     |
-                                                          [Select Best Model]
-                                                                     |
-[User Input via Streamlit] -> [Saved Vectorizer & Model] -> [Prediction & Priority]
+             [Customer Submissions] (Email, WhatsApp, Slack, Telegram, REST API, Web Form)
+                                      |
+                                      v
+                        [Factory Ingestion Connectors]
+                                      |
+                                      v
+                     [Orchestration Engine Pipeline]
+                                      |
+     +--------------------------------+-------------------------------+
+     |                |               |               |               |
+[Validation]     [OCR Parser]   [Spam Filter]  [Lang Translate]  [Duplicate Checks]
+     |                |               |               |               |
+     +--------------------------------+-------------------------------+
+                                      |
+                                      v
+                      [Regex Entity Extraction Service]
+                                      |
+                                      v
+                     [Sentiment & Urgency Classifier]
+                                      |
+                                      v
+                   [AI Categorizer (Logistic Regression)]
+                                      |
+                                      v
+                        [Routing & Assignment Engine]
+                                      |
+                                      v
+                    [SQLite Repository & Auto-Response]
 ```
 
-## Preprocessing
-Text data is extremely noisy. Our preprocessing pipeline (in `utils.py`) handles:
-- Lowercasing to ensure case-insensitivity.
-- Removing HTML tags and URLs.
-- Removing punctuation and numbers.
-- Tokenization to split text into words.
-- Removing English stopwords (e.g., "the", "is", "at").
-- Lemmatization to reduce words to their base form (e.g., "running" -> "run").
+---
 
-## TF-IDF Explanation
-Term Frequency-Inverse Document Frequency (TF-IDF) is used to convert text into numerical vectors. 
-- **TF (Term Frequency)**: Measures how frequently a term appears in a document.
-- **IDF (Inverse Document Frequency)**: Measures how important a term is across the entire dataset. It heavily penalizes common words and boosts rare, domain-specific words.
-We used `max_features=5000` to limit the vocabulary size and `ngram_range=(1,2)` to capture single words and two-word phrases (bigrams).
+## 🚀 Key Modules & Features
 
-## Model Comparison
+### 1. Ingestion & Connectors (Factory Pattern)
+Normalizes payloads from diverse channels (Email via IMAP, WhatsApp, Slack, Telegram webhooks, REST API, and Manual Entry forms) into a uniform internal `Ticket` object.
+
+### 2. Validation & Spam Filtering
+Checks required fields and email formats. Reject tickets that exceed size limits. Block marketing emails or blank requests based on configuration rules.
+
+### 3. Cosine Similarity Duplicate Checker
+Computes TF-IDF Cosine Similarity of incoming text against existing tickets. If >90% similarity is found, flags the ticket and provides a merge-and-resolve workflow.
+
+### 4. Language Translation & OCR
+Uses `langdetect` to identify non-English tickets, translating them to English. Extracts text from PDF documents (using PyPDF2) and image attachments (OCR), appending it to the ticket body for classification.
+
+### 5. Entity Extraction
+Regex-based parses for Order numbers, Invoices, Transaction IDs, Employee IDs, Phone numbers, Amounts, and Dates, registering them as metadata.
+
+### 6. Sentiment Analysis & Priority Escalar
+Rates user sentiment (Positive, Neutral, Negative, Very Angry). Tickets tagged as "Very Angry" are automatically escalated to `HIGH` priority.
+
+### 7. Scikit-Learn Classification
+Vectorizes cleaned text with TF-IDF (`max_features=5000`, `ngram_range=(1,2)`) and routes through a trained **Logistic Regression** classifier (accuracy ~42%). Falls back to **"Needs Human Review"** if confidence falls below 60%.
+
+---
+
+## 🛠️ How to Run Locally
+
+### 1. Setup Virtual Environment & Dependencies
+```bash
+python -m venv venv
+.\venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+```
+
+### 2. Ingest Data & Train Classifier
+```bash
+# Ingest Kaggle dataset
+python data/download_data.py
+python data/preprocess.py
+
+# Train models
+python train.py
+```
+
+### 3. Launch the Platform
+Start the FastAPI server (exposing webhooks and REST endpoints):
+```bash
+uvicorn app.api.main:app --port 8000
+```
+
+Start the Streamlit dashboard in a separate terminal:
+```bash
+streamlit run app.py
+```
+
+---
+
+## 🎯 Model Evaluation Results
 We compared two baseline models for text classification:
-1. **Multinomial Naive Bayes**: A generative model that works well with word counts and TF-IDF. It assumes independence between features.
-2. **Logistic Regression**: A discriminative model that often performs better when features are somewhat correlated.
 
-## Results
-The Logistic Regression model generally outperforms Naive Bayes in both F1-score and Accuracy for this dataset, thanks to its ability to handle complex feature weights.
+| Model | Accuracy | Weighted Precision | Weighted Recall | Weighted F1-score |
+|---|---|---|---|---|
+| Multinomial Naive Bayes | 42.08% | 34.53% | 42.08% | 37.87% |
+| **Logistic Regression** | **42.25%** | **37.58%** | **42.25%** | **38.42%** |
 
-## How to Run
+*Logistic Regression was automatically selected as the active model due to a higher F1-score.*
 
-1. **Install Dependencies**:
-   ```bash
-   pip install -r requirements.txt
-   ```
+---
 
-2. **Generate Data**:
-   ```bash
-   cd data
-   python download_data.py
-   python preprocess.py
-   cd ..
-   ```
-
-3. **Train the Model**:
-   ```bash
-   python train.py
-   ```
-
-4. **Run CLI Prediction**:
-   ```bash
-   python predict.py
-   ```
-
-5. **Run Streamlit Web App**:
-   ```bash
-   streamlit run app.py
-   ```
-
-## Screenshots
-*(Add screenshots of the Streamlit app here)*
-
-## Future Improvements
-- Implement transformer-based models like BERT for better contextual understanding.
-- Add hyperparameter tuning via GridSearchCV.
-- Gather more real-world HR data to replace synthetic data.
+## 🔮 Future Roadmap
+- Replace rule-based sentiment/translation with LLMs (e.g. Gemini API).
+- Add active IMAP listening in a background daemon thread.
+- Implement automated email dispatching instead of console/DB simulated responses.
