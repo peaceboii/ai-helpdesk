@@ -33,6 +33,10 @@ def main():
     # Initialize the database
     init_db()
     
+    # Start background listener services directly within the Streamlit process
+    from app.services.listener_service import ListenerServiceManager
+    ListenerServiceManager().start()
+    
     # Sidebar navigation
     st.sidebar.title("🎫 AI Helpdesk")
     st.sidebar.markdown("Helpdesk Automation Platform v1.0.0")
