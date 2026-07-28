@@ -57,6 +57,10 @@ class TicketService:
         if auto_response:
             NotificationService.send_auto_acknowledgement(ticket, auto_response)
             
+            # Allow short delay for SMTP server session release before consecutive connection
+            import time
+            time.sleep(1.5)
+            
             # Forward copy of initial reply and ticket details to assigned department
             forward_sub = f"[TICKET FORWARDED] New Ingestion: {ticket.ticket_id} ({ticket.source})"
             forward_body = (
@@ -118,6 +122,10 @@ class TicketService:
         
         # Send status update response back to the customer on the same channel
         NotificationService.send_auto_acknowledgement(ticket, update_text)
+        
+        # Allow short delay for SMTP server session release before consecutive connection
+        import time
+        time.sleep(1.5)
         
         # Forward status update details to department
         forward_sub = f"[TICKET STATUS UPDATE] {ticket.ticket_id} changed to {new_status}"

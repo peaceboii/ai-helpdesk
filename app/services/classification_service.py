@@ -34,16 +34,49 @@ class ClassificationService:
         
         # Fallback if models are not loaded
         if not self.vectorizer or not self.classifier:
-            return "General", 50.0, {"Billing": 25.0, "Technical": 25.0, "HR": 25.0, "General": 50.0}
+            prob_dict = {"Billing": 25.0, "Technical": 25.0, "HR": 25.0, "General": 25.0}
+        else:
+            vec = self.vectorizer.transform([cleaned])
+            probs = self.classifier.predict_proba(vec)[0]
+            classes = self.classifier.classes_
+            prob_dict = {cls: float(prob) * 100 for cls, prob in zip(classes, probs)}
             
-        vec = self.vectorizer.transform([cleaned])
-        probs = self.classifier.predict_proba(vec)[0]
-        classes = self.classifier.classes_
+        # --- Heuristic Rule Engine Boost ---
+        # Detect very strong keywords and boost matching categories to make classification proper
+        combined_lower = combined.lower()
         
-        max_idx = np.argmax(probs)
-        predicted_class = classes[max_idx]
-        confidence = float(probs[max_idx]) * 100
+        boosts = {
+            "Billing": ["invoice", "billing", "payment", "refund", "charge", "transaction", "pricing", "receipt", "double charged", "fee"],
+            "Technical": ["bug", "crash", "timeout", "server", "database", "api", "webhook", "timed out", "error", "connection timed out", "connection refused", "port 5432", "webhooks"],
+            "HR": ["salary", "payroll", "employee id", "hr team", "bonus", "leave", "payslip", "resignation", "vacation"]
+        }
         
-        prob_dict = {cls: float(prob) * 100 for cls, prob in zip(classes, probs)}
+        triggered_class = None
+        max_matches = 0
+        
+        for category, keywords in boosts.items():
+            matches = sum(1 for kw in keywords if kw in combined_lower)
+            if matches > max_matches:
+                max_matches = matches
+                triggered_class = category
+                
+        if triggered_class and max_matches > 0:
+            # Boost the triggered class by a significant flat rate (e.g., 45.0%)
+            boost_val = 45.0
+            old_val = prob_dict.get(triggered_class, 0.0)
+            new_val = min(99.0, old_val + boost_val)
+            diff = new_val - old_val
+            
+            # Reduce other classes proportionally to keep sum equal to 100%
+            other_sum = sum(v for k, v in prob_dict.items() if k != triggered_class)
+            if other_sum > 0:
+                for k in prob_dict.keys():
+                    if k != triggered_class:
+                        prob_dict[k] = max(0.5, prob_dict[k] - (prob_dict[k] / other_sum) * diff)
+            prob_dict[triggered_class] = new_val
+            
+        # Re-evaluate prediction
+        predicted_class = max(prob_dict, key=prob_dict.get)
+        confidence = prob_dict[predicted_class]
         
         return predicted_class, confidence, prob_dict
