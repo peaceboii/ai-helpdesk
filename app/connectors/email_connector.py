@@ -11,14 +11,14 @@ from app.services.database_service import TicketRepository
 class EmailConnector(BaseConnector):
     def __init__(self, config: Dict[str, Any]):
         self.config = config
-        self.host = config.get("email_imap_host", config.get("host", "imap.example.com"))
+        self.host = config.get("imap_host", config.get("email_imap_host", config.get("host", "imap.example.com")))
         try:
-            self.port = int(config.get("email_imap_port", config.get("port", 993)))
-        except ValueError:
+            self.port = int(config.get("imap_port", config.get("email_imap_port", config.get("port", 993))))
+        except (ValueError, TypeError):
             self.port = 993
         self.use_ssl = True
         self.username = config.get("email_address", config.get("username", ""))
-        self.password = config.get("email_app_password", config.get("password", ""))
+        self.password = config.get("app_password", config.get("email_app_password", config.get("password", "")))
 
     def ingest(self, payload: Dict[str, Any], attachment_name: Optional[str] = None, attachment_data: Optional[bytes] = None) -> Ticket:
         """
