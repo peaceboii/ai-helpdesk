@@ -744,3 +744,41 @@ def render_settings():
         config["department_contacts"] = updated_contacts
         save_config(config)
         st.success("Configurations saved successfully!")
+
+    st.markdown("---")
+    st.subheader("🔄 Database Maintenance")
+    st.markdown("Re-run the newly retrained ML classifier on all existing tickets in the database to update their categories, confidence scores, probability predictions, and department assignments.")
+    
+    if st.button("Re-classify & Route All Existing Tickets", type="secondary"):
+        with st.spinner("Re-classifying tickets in database..."):
+            from app.services.database_service import TicketRepository
+            from app.services.classification_service import ClassificationService
+            from app.services.routing_service import RoutingService
+            
+            tickets = TicketRepository.list_tickets(status="All")
+            updated_count = 0
+            classifier = ClassificationService()
+            
+            for t in tickets:
+                pred_class, confidence, probs = classifier.predict(t.subject, t.body)
+                
+                # Check confidence threshold
+                threshold = config.get("confidence_threshold", 60.0)
+                if confidence < threshold:
+                    new_category = "Needs Human Review"
+                else:
+                    new_category = pred_class
+                    
+                new_team = RoutingService.get_assigned_team(new_category)
+                
+                # Only update if they changed
+                if t.category != new_category or t.assigned_team != new_team or t.confidence != confidence:
+                    t.category = new_category
+                    t.confidence = confidence
+                    t.assigned_team = new_team
+                    TicketRepository.update_ticket(t)
+                    TicketRepository.save_prediction(t.ticket_id, new_category, confidence, probs)
+                    updated_count += 1
+                    
+            st.success(f"🎉 Successfully re-classified and updated routing for {updated_count} existing tickets!")
+            st.rerun()
