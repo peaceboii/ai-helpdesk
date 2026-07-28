@@ -66,7 +66,13 @@ Regex-based parses for Order numbers, Invoices, Transaction IDs, Employee IDs, P
 Rates user sentiment (Positive, Neutral, Negative, Very Angry). Tickets tagged as "Very Angry" are automatically escalated to `HIGH` priority.
 
 ### 7. Scikit-Learn Classification
-Vectorizes cleaned text with TF-IDF (`max_features=5000`, `ngram_range=(1,2)`) and routes through a trained **Logistic Regression** classifier (accuracy ~42%). Falls back to **"Needs Human Review"** if confidence falls below 60%.
+Vectorizes cleaned text with TF-IDF (`max_features=5000`, `ngram_range=(1,2)`) and routes through a trained **Logistic Regression** classifier (accuracy **~95.28%**). The classification engine is trained on a programmatically cleaned and balanced dataset (~1,200 rows per class for Billing, Technical, General, and HR), preventing the model from falling back to **"Needs Human Review"** on clear queries.
+
+### 8. Background Ingestion & Notifications
+An active background daemon thread-pool (`ListenerServiceManager`) dynamically runs in Streamlit and FastAPI to poll emails (via IMAP) and channel configurations. Upon ticket ingestion or admin status updates, auto-replies are generated and dispatched back through the same medium (SMTP SSL/TLS for Email, webhooks for Telegram/Slack/WhatsApp) alongside forwarded copies to the respective department contact email.
+
+### 9. Bulk Database Re-classification Tool
+Administrators can re-run the updated ML categorizer in bulk across all existing database tickets directly from the **Settings** dashboard under **Database Maintenance**. This updates past categories, confidence scores, probability charts, and routes them to their correct departments.
 
 ---
 
@@ -103,12 +109,12 @@ streamlit run app.py
 ---
 
 ## 🎯 Model Evaluation Results
-We compared two baseline models for text classification:
+We compared two baseline models for text classification on our cleaned, balanced dataset:
 
 | Model | Accuracy | Weighted Precision | Weighted Recall | Weighted F1-score |
 |---|---|---|---|---|
-| Multinomial Naive Bayes | 42.08% | 34.53% | 42.08% | 37.87% |
-| **Logistic Regression** | **42.25%** | **37.58%** | **42.25%** | **38.42%** |
+| Multinomial Naive Bayes | 88.47% | 88.50% | 88.47% | 88.47% |
+| **Logistic Regression** | **95.28%** | **95.29%** | **95.28%** | **95.28%** |
 
 *Logistic Regression was automatically selected as the active model due to a higher F1-score.*
 
@@ -116,5 +122,4 @@ We compared two baseline models for text classification:
 
 ## 🔮 Future Roadmap
 - Replace rule-based sentiment/translation with LLMs (e.g. Gemini API).
-- Add active IMAP listening in a background daemon thread.
-- Implement automated email dispatching instead of console/DB simulated responses.
+- Implement interactive agentic workflows where admins can converse with the helpdesk helper.
