@@ -16,7 +16,15 @@ def load_config() -> Dict[str, Any]:
             },
             "confidence_threshold": 60.0,
             "spam_keywords": [],
-            "high_priority_keywords": []
+            "high_priority_keywords": [],
+            "department_contacts": {
+                "Finance Team": "kumaravelu2003@gmail.com",
+                "Engineering": "kumaravelu2003@gmail.com",
+                "Human Resources": "kumaravelu2003@gmail.com",
+                "Customer Support": "kumaravelu2003@gmail.com",
+                "Customer Support (Escalated)": "kumaravelu2003@gmail.com",
+                "Spam Folder": "kumaravelu2003@gmail.com"
+            }
         }
     with open(CONFIG_PATH, 'r') as f:
         return json.load(f)

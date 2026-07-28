@@ -183,3 +183,58 @@ class NotificationService:
             err_msg = f"Failed to send WhatsApp acknowledgment: {e}"
             IntegrationRepository.update_logs("whatsapp", increment_errors=True, add_log_message=err_msg)
             return False
+
+    @staticmethod
+    def notify_department(ticket: Ticket, subject: str, body: str) -> None:
+        """Forwards ticket details and customer communication copies to the assigned department contact."""
+        from app.utils.config import load_config
+        config = load_config()
+        contacts = config.get("department_contacts", {})
+        
+        team = ticket.assigned_team or "Customer Support"
+        recipient = contacts.get(team, "kumaravelu2003@gmail.com")
+        if not recipient:
+            recipient = "kumaravelu2003@gmail.com"
+            
+        res = IntegrationRepository.get_settings("email")
+        cfg = res.get("settings", {})
+        if not res.get("enabled") or not cfg.get("email_address") or not cfg.get("app_password"):
+            # Fallback mock logging if IMAP/SMTP credentials are not yet configured
+            IntegrationRepository.update_logs("email", add_log_message=f"Department forward (Mock): Ticket {ticket.ticket_id} details copy routed to {recipient}")
+            return
+            
+        try:
+            import smtplib
+            from email.mime.text import MIMEText
+            
+            imap_host = cfg.get("imap_host", "")
+            smtp_host = "smtp.gmail.com"
+            if "outlook" in imap_host.lower() or "office365" in imap_host.lower():
+                smtp_host = "smtp.office365.com"
+            elif "gmail" in imap_host.lower():
+                smtp_host = "smtp.gmail.com"
+            else:
+                smtp_host = imap_host.replace("imap", "smtp")
+                
+            sender = cfg.get("email_address")
+            password = cfg.get("app_password")
+            
+            msg = MIMEText(body)
+            msg["Subject"] = subject
+            msg["From"] = sender
+            msg["To"] = recipient
+            
+            try:
+                server = smtplib.SMTP_SSL(smtp_host, 465, timeout=10)
+                server.login(sender, password)
+            except Exception:
+                server = smtplib.SMTP(smtp_host, 587, timeout=10)
+                server.starttls()
+                server.login(sender, password)
+                
+            server.send_message(msg)
+            server.quit()
+            IntegrationRepository.update_logs("email", add_log_message=f"Department forward: Successfully routed notification to {recipient} for ticket {ticket.ticket_id}")
+        except Exception as e:
+            err_msg = f"Failed to forward ticket notification to department ({recipient}): {e}"
+            IntegrationRepository.update_logs("email", increment_errors=True, add_log_message=err_msg)

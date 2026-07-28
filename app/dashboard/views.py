@@ -575,8 +575,8 @@ def render_inbox():
                 if t.merged_with:
                     st.warning(f"⚠️ This ticket has been marked as a possible duplicate of **{t.merged_with}**.")
                     if st.button("Merge and Resolve Ticket", type="secondary"):
-                        t.status = "Resolved"
-                        TicketRepository.update_ticket(t)
+                        from app.services.ticket_service import TicketService
+                        TicketService().update_status(t.ticket_id, "Resolved")
                         st.success(f"Ticket {t.ticket_id} merged with {t.merged_with} and status set to Resolved.")
                         st.rerun()
             with col_det2:
@@ -585,7 +585,8 @@ def render_inbox():
                 # Status modification
                 new_status = st.selectbox("Update Status", ["Open", "Pending", "Resolved", "Spam"], index=["Open", "Pending", "Resolved", "Spam"].index(t.status))
                 if new_status != t.status:
-                    TicketRepository.update_ticket_status(t.ticket_id, new_status)
+                    from app.services.ticket_service import TicketService
+                    TicketService().update_status(t.ticket_id, new_status)
                     st.success("Status updated!")
                     st.rerun()
                     
@@ -715,10 +716,31 @@ def render_settings():
     st.subheader("Spam keywords")
     spam_keywords = st.text_area("List keywords (comma-separated)", value=", ".join(config.get("spam_keywords", [])))
     
+    # Department contacts
+    st.markdown("---")
+    st.subheader("🏢 Department Contact Details (Forwarding)")
+    st.markdown("Configure email addresses to forward ticket details and copies of customer replies for each department/team.")
+    
+    contacts = config.get("department_contacts", {})
+    updated_contacts = {}
+    
+    # Get all distinct teams
+    teams = list(set(routing_rules.values()))
+    for default_team in ["Customer Support (Escalated)", "Spam Folder"]:
+        if default_team not in teams:
+            teams.append(default_team)
+            
+    for team in teams:
+        updated_contacts[team] = st.text_input(
+            f"Forwarding email for '{team}'",
+            value=contacts.get(team, "kumaravelu2003@gmail.com")
+        )
+    
     if st.button("Save Platform Configurations", type="primary"):
         # Compile config
         config["routing_rules"] = updated_routing
         config["confidence_threshold"] = confidence_threshold
         config["spam_keywords"] = [s.strip() for s in spam_keywords.split(",") if s.strip()]
+        config["department_contacts"] = updated_contacts
         save_config(config)
         st.success("Configurations saved successfully!")

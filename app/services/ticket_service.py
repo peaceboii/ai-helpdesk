@@ -57,6 +57,24 @@ class TicketService:
         if auto_response:
             NotificationService.send_auto_acknowledgement(ticket, auto_response)
             
+            # Forward copy of initial reply and ticket details to assigned department
+            forward_sub = f"[TICKET FORWARDED] New Ingestion: {ticket.ticket_id} ({ticket.source})"
+            forward_body = (
+                f"Dear Team,\n\n"
+                f"A new ticket has been ingested and routed to your department.\n\n"
+                f"--- Ticket Details ---\n"
+                f"ID: {ticket.ticket_id}\n"
+                f"Source: {ticket.source}\n"
+                f"Customer Name: {ticket.customer_name}\n"
+                f"Customer Email: {ticket.email}\n"
+                f"Category: {ticket.category}\n"
+                f"Priority: {ticket.priority}\n"
+                f"Assigned Team: {ticket.assigned_team}\n\n"
+                f"--- Auto-Response Sent to Customer ---\n"
+                f"{auto_response}\n"
+            )
+            NotificationService.notify_department(ticket, forward_sub, forward_body)
+            
         # Update integration stats
         IntegrationRepository.update_logs(
             integration_id,
@@ -67,3 +85,46 @@ class TicketService:
         )
         
         return res
+
+    def update_status(self, ticket_id: str, new_status: str) -> None:
+        """
+        Updates the ticket status, auto-generates a status update reply, 
+        sends it to the customer via their original communication medium,
+        and forwards a copy to the department contact.
+        """
+        ticket = TicketRepository.get_ticket(ticket_id)
+        if not ticket:
+            return
+            
+        old_status = ticket.status
+        if old_status == new_status:
+            return
+            
+        # Save new status to repository
+        TicketRepository.update_ticket_status(ticket_id, new_status)
+        ticket.status = new_status
+        
+        # Format the customer status update message
+        update_text = (
+            f"Hello {ticket.customer_name},\n\n"
+            f"The status of your support request has been updated.\n\n"
+            f"Ticket ID: {ticket.ticket_id}\n"
+            f"New Status: {new_status}\n"
+            f"Category: {ticket.category}\n"
+            f"Priority: {ticket.priority}\n\n"
+            f"If you have any further questions, please reply directly through this channel.\n"
+            f"AI Helpdesk Automation Platform"
+        )
+        
+        # Send status update response back to the customer on the same channel
+        NotificationService.send_auto_acknowledgement(ticket, update_text)
+        
+        # Forward status update details to department
+        forward_sub = f"[TICKET STATUS UPDATE] {ticket.ticket_id} changed to {new_status}"
+        forward_body = (
+            f"Dear Team,\n\n"
+            f"The status of ticket {ticket.ticket_id} has been updated to {new_status}.\n\n"
+            f"--- Status Update Sent to Customer ---\n"
+            f"{update_text}\n"
+        )
+        NotificationService.notify_department(ticket, forward_sub, forward_body)
