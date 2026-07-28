@@ -13,3 +13,5 @@ uvicorn
 langdetect
 PyPDF2
 email-validator
+cryptography
+python-dotenv

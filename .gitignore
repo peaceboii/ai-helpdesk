@@ -16,3 +16,4 @@ data/raw_tickets.csv
 # OS specific
 .DS_Store
 Thumbs.db
+.env

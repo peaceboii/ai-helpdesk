@@ -85,6 +85,29 @@ def init_db():
     )
     ''')
     
+    # 6. Integration Settings Table
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS integration_settings (
+        integration_id TEXT PRIMARY KEY,
+        enabled INTEGER NOT NULL DEFAULT 0,
+        settings TEXT NOT NULL, -- Encrypted JSON string
+        updated_at TEXT NOT NULL
+    )
+    ''')
+    
+    # 7. Integration Logs Table
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS integration_logs (
+        integration_id TEXT PRIMARY KEY,
+        last_sync TEXT,
+        messages_processed INTEGER NOT NULL DEFAULT 0,
+        errors INTEGER NOT NULL DEFAULT 0,
+        connection_status TEXT NOT NULL DEFAULT 'Disconnected',
+        last_ticket_created TEXT,
+        logs TEXT -- JSON list of strings
+    )
+    ''')
+    
     conn.commit()
     conn.close()
 
@@ -355,3 +378,114 @@ class TicketRepository:
         
         conn.close()
         return metrics
+
+class IntegrationRepository:
+    @staticmethod
+    def get_settings(integration_id: str) -> Dict[str, Any]:
+        """Loads and decrypts integration settings."""
+        from app.utils.encryption import decrypt_string
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM integration_settings WHERE integration_id = ?", (integration_id,))
+        row = cursor.fetchone()
+        conn.close()
+        
+        if not row:
+            return {"enabled": 0, "settings": {}, "updated_at": ""}
+            
+        try:
+            decrypted = decrypt_string(row['settings'])
+            settings_dict = json.loads(decrypted)
+        except Exception:
+            settings_dict = {}
+            
+        return {
+            "integration_id": row['integration_id'],
+            "enabled": bool(row['enabled']),
+            "settings": settings_dict,
+            "updated_at": row['updated_at']
+        }
+
+    @staticmethod
+    def save_settings(integration_id: str, enabled: bool, settings: Dict[str, Any]) -> None:
+        """Encrypts and saves integration settings."""
+        from app.utils.encryption import encrypt_string
+        settings_json = json.dumps(settings)
+        encrypted_settings = encrypt_string(settings_json)
+        
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('''
+        INSERT OR REPLACE INTO integration_settings (integration_id, enabled, settings, updated_at)
+        VALUES (?, ?, ?, datetime('now', 'localtime'))
+        ''', (integration_id, 1 if enabled else 0, encrypted_settings))
+        conn.commit()
+        conn.close()
+
+    @staticmethod
+    def get_logs(integration_id: str) -> Dict[str, Any]:
+        """Loads log metadata and history for an integration."""
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM integration_logs WHERE integration_id = ?", (integration_id,))
+        row = cursor.fetchone()
+        conn.close()
+        
+        if not row:
+            return {
+                "integration_id": integration_id,
+                "last_sync": "Never",
+                "messages_processed": 0,
+                "errors": 0,
+                "connection_status": "Disconnected",
+                "last_ticket_created": "None",
+                "logs": []
+            }
+            
+        try:
+            logs_list = json.loads(row['logs']) if row['logs'] else []
+        except Exception:
+            logs_list = []
+            
+        return {
+            "integration_id": row['integration_id'],
+            "last_sync": row['last_sync'] or "Never",
+            "messages_processed": row['messages_processed'] or 0,
+            "errors": row['errors'] or 0,
+            "connection_status": row['connection_status'] or "Disconnected",
+            "last_ticket_created": row['last_ticket_created'] or "None",
+            "logs": logs_list
+        }
+
+    @staticmethod
+    def update_logs(integration_id: str, connection_status: Optional[str] = None, 
+                    last_ticket_created: Optional[str] = None, increment_processed: bool = False,
+                    increment_errors: bool = False, add_log_message: Optional[str] = None) -> None:
+        """Updates integration logs transactionally."""
+        current = IntegrationRepository.get_logs(integration_id)
+        
+        last_sync = current['last_sync']
+        from datetime import datetime
+        if increment_processed or increment_errors or add_log_message:
+            last_sync = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            
+        messages_processed = current['messages_processed'] + (1 if increment_processed else 0)
+        errors = current['errors'] + (1 if increment_errors else 0)
+        status = connection_status if connection_status is not None else current['connection_status']
+        last_ticket = last_ticket_created if last_ticket_created is not None else current['last_ticket_created']
+        
+        logs_list = current['logs']
+        if add_log_message:
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            logs_list.append(f"[{timestamp}] {add_log_message}")
+            logs_list = logs_list[-50:]
+            
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('''
+        INSERT OR REPLACE INTO integration_logs (
+            integration_id, last_sync, messages_processed, errors, connection_status, last_ticket_created, logs
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        ''', (integration_id, last_sync, messages_processed, errors, status, last_ticket, json.dumps(logs_list)))
+        conn.commit()
+        conn.close()

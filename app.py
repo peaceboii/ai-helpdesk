@@ -18,7 +18,7 @@ spec.loader.exec_module(app_module)
 import streamlit as st
 from app.dashboard.views import (
     render_dashboard,
-    render_create_ticket,
+    render_integrations,
     render_inbox,
     render_predictions,
     render_analytics,
@@ -39,7 +39,7 @@ def main():
     
     page = st.sidebar.radio(
         "Navigation",
-        ["Dashboard", "Create Ticket", "Inbox", "Predictions", "Analytics", "Settings"]
+        ["Dashboard", "Inbox", "Predictions", "Analytics", "Integrations", "Settings"]
     )
     
     st.sidebar.markdown("---")
@@ -48,14 +48,14 @@ def main():
     # Page Routing
     if page == "Dashboard":
         render_dashboard()
-    elif page == "Create Ticket":
-        render_create_ticket()
     elif page == "Inbox":
         render_inbox()
     elif page == "Predictions":
         render_predictions()
     elif page == "Analytics":
         render_analytics()
+    elif page == "Integrations":
+        render_integrations()
     elif page == "Settings":
         render_settings()
 

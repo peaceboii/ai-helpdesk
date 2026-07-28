@@ -17,22 +17,22 @@ class EntityExtractionService:
         entities = {}
         
         # 1. Invoice Number
-        invoice_match = re.search(r'(?i)inv(?:oice)?\s*#?\s*([a-z0-9-]+)', text)
+        invoice_match = re.search(r'(?i)\binv(?:oice)?\b\s*[:#]?\s*(?!\b(?:is|id|no|number|num|was|for)\b)([a-z0-9-]+)', text)
         if invoice_match:
             entities['Invoice Number'] = invoice_match.group(1).upper()
             
         # 2. Order Number
-        order_match = re.search(r'(?i)ord(?:er)?\s*#?\s*([a-z0-9-]+)', text)
+        order_match = re.search(r'(?i)\bord(?:er)?\b\s*[:#]?\s*(?!\b(?:is|id|no|number|num|was|for)\b)([a-z0-9-]+)', text)
         if order_match:
             entities['Order Number'] = order_match.group(1).upper()
             
         # 3. Transaction ID
-        txn_match = re.search(r'(?i)txn|transaction(?:\s*id)?\s*#?\s*([a-z0-9-]+)', text)
+        txn_match = re.search(r'(?i)\b(?:txn|transaction)\b(?:\s*id)?\s*[:#]?\s*(?!\b(?:is|id|no|number|num|was|for)\b)([a-z0-9-]+)', text)
         if txn_match:
             entities['Transaction ID'] = txn_match.group(1).upper()
             
         # 4. Employee ID
-        emp_match = re.search(r'(?i)emp(?:loyee)?(?:\s*id)?\s*#?\s*([a-z0-9-]+)', text)
+        emp_match = re.search(r'(?i)\bemp(?:loyee)?\b(?:\s*id)?\s*[:#]?\s*(?!\b(?:is|id|no|number|num|was|for)\b)([a-z0-9-]+)', text)
         if emp_match:
             entities['Employee ID'] = emp_match.group(1).upper()
             
